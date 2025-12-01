@@ -1,5 +1,5 @@
 import { Router, Route, Navigate } from "@solidjs/router";
-import { isAuthenticated } from "./services/auth.js";
+import { isAuthenticated, authLoading } from "./services/auth.js";
 import { Show } from "solid-js";
 
 // pages
@@ -125,5 +125,17 @@ function NotFound() {
 }
 
 function AuthBoundary(props) {
-  return isAuthenticated() ? props.children : <Navigate href="/error" state={{ error: { title: "401", message: "Pristup traženoj stranici nije dozvoljen." } }} />;
+  return (
+    <Show when={!authLoading()} fallback={
+      <div class="flex justify-center items-center min-h-screen">
+        <span class="loading loading-spinner loading-xl"></span>
+      </div>
+    }>
+      {isAuthenticated() ?
+        (props.children) :
+        (<Navigate
+          href="/error"
+          state={{ error: { title: "401", message: "Pristup traženoj stranici nije dozvoljen." } }} />)}
+    </Show>
+  );
 }
