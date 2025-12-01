@@ -9,6 +9,7 @@ import SignUp from "./pages/SignUp";
 import Error from "./pages/Error";
 import SignOut from "./pages/SignOut";
 import ResetPassword from "./pages/ResetPassword";
+import EventManagement from "./pages/EventManagement";
 
 export default function App() {
   return (
@@ -19,6 +20,9 @@ export default function App() {
         <Route path="/signup" component={SignUp} />
         <Route path="/signout" component={SignOut} />
         <Route path="/resetpassword" component={ResetPassword} />
+      </Route>
+      <Route path="/event" component={AuthBoundary}>
+        <Route path="/management" component={EventManagement} />
       </Route>
       <Route path="/error" component={Error} />
       <Route path="*" component={NotFound} />
@@ -38,7 +42,7 @@ function Layout(props) {
             <ul
               tabindex="-1"
               class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow">
-              <li><a>Privremeno</a></li>
+              <li><a href="/event/management">Upravljanje događajima</a></li>
             </ul>
           </div>
         </div>
@@ -118,4 +122,8 @@ function Layout(props) {
 
 function NotFound() {
   return <Navigate href="/error" state={{ error: { title: "404", message: "Tražena stranica ne postoji." } }} />
+}
+
+function AuthBoundary(props) {
+  return isAuthenticated() ? props.children : <Navigate href="/error" state={{ error: { title: "401", message: "Pristup traženoj stranici nije dozvoljen." } }} />;
 }
