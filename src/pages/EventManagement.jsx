@@ -2,7 +2,7 @@ import { createSignal, Show, For, createEffect } from "solid-js";
 import { authService } from "../services/auth.js";
 import Message from "../components/Message.jsx";
 import { db } from "../lib/firebase.js";
-import { collection, addDoc, query, where, getDoc, updateDoc, deleteDoc, getDocs, doc } from "firebase/firestore";
+import { collection, addDoc, query, where, updateDoc, deleteDoc, getDocs, doc } from "firebase/firestore";
 
 export default function EventManagement() {
     const [searchTerm, setSearchTerm] = createSignal("");
@@ -30,7 +30,7 @@ export default function EventManagement() {
                 .filter((event) => event.name.toLowerCase().includes(term));
             setEvents(found);
         } catch (error) {
-            console.log(error.message);
+            console.error(error.message);
             setError("Greška pretraživanja");
         } finally {
             setLoading(false);
@@ -60,17 +60,18 @@ export default function EventManagement() {
                 const docRef = doc(db, "events", selectedEvent().id);
                 await updateDoc(docRef, eventData);
                 setEvents(
-                    events().map((event) => (event.id === selectedEvent().id ? { ...selectedEvent(), ...eventData } : event))
+                    events().map((event) => (event.id === selectedEvent().id ? { ...event, ...eventData } : event))
                 );
             } else {
                 // dodavanje
                 const eventsRef = collection(db, "events");
-                await addDoc(eventsRef, { ...eventData, created: new Date() });
+                const docRef = await addDoc(eventsRef, { ...eventData, created: new Date() });
+                setEvents([...events(), { id: docRef.id, ...eventData, created: new Date() }]);
                 e.target.reset();
             }
             setSuccess(true);
         } catch (error) {
-            console.log("Operation error", error.message);
+            console.error("Operation error", error.message);
             setError(selectedEvent() ? "Ažuriranje događaja nije uspjelo" : "Dodavanje događaja nije uspjelo");
         }
     };
@@ -86,10 +87,10 @@ export default function EventManagement() {
             setSelectedEvent(null);
             formRef.reset();
         } catch (error) {
-            console.log("Delete error", error.message);
+            console.error("Delete error", error.message);
             setError("Brisanje nije uspjelo");
         }
-    }
+    };
 
     let formRef;
     createEffect(() => {
@@ -98,7 +99,7 @@ export default function EventManagement() {
             formRef.name.value = event.name;
             formRef.description.value = event.description;
             if (event.datetime) {
-                const date = event.datetime.toDate();
+                const date = event.datetime.toDate ? event.datetime.toDate() : event.datetime;
                 formRef.datetime.value = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
             }
             formRef.isPrivate.checked = event.isPrivate;
@@ -164,16 +165,16 @@ export default function EventManagement() {
 
             <form class="max-w-2xl m-auto" onSubmit={handleSubmit} ref={formRef}>
                 <label class="floating-label mb-1 w-full">
-                    <input class="input input-md w-full" type="text" name="name" placeholder="Ime" required="true" />
+                    <input class="input input-md w-full" type="text" name="name" placeholder="Ime" required />
                     <span>Naziv</span>
                 </label>
 
                 <fieldset class="fieldset">
-                    <textarea class="textarea h-24 w-full" placeholder="Opis" name="description" required="true"></textarea>
+                    <textarea class="textarea h-24 w-full" placeholder="Opis" name="description" required></textarea>
                 </fieldset>
 
                 <label class="floating-label mb-1 w-full">
-                    <input class="input input-md w-full" type="datetime-local" name="datetime" placeholder="Datum i vrijeme" required="true" />
+                    <input class="input input-md w-full" type="datetime-local" name="datetime" placeholder="Datum i vrijeme" required />
                     <span>Datum i vrijeme</span>
                 </label>
 
