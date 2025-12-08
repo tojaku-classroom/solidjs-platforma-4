@@ -2,15 +2,40 @@ import { createSignal, Show, For, createEffect } from "solid-js";
 import { authService } from "../services/auth.js";
 import Message from "../components/Message.jsx";
 import { db } from "../lib/firebase.js";
-import { collection, addDoc, query, where, updateDoc, deleteDoc, getDocs, doc } from "firebase/firestore";
+import { collection, addDoc, query, where, updateDoc, deleteDoc, getDocs, doc, limit, orderBy } from "firebase/firestore";
 
 export default function EventManagement() {
+    let formRef;
+
     const [searchTerm, setSearchTerm] = createSignal("");
     const [events, setEvents] = createSignal([]);
     const [selectedEvent, setSelectedEvent] = createSignal(null);
     const [loading, setLoading] = createSignal(false);
     const [error, setError] = createSignal(null);
-    const [success, setSuccess] = createSignal(false);
+    const [success, setSuccess] = createSignal(null);
+
+    // učitavanje prvih 10 događaja
+    const loadInitialEvents = async () => {
+        setLoading(true);
+        try {
+            const userId = authService.getCurrentUser().uid;
+            const eventsRef = collection(db, "events");
+            const q = query(
+                eventsRef,
+                where("userId", "==", userId),
+                orderBy("created", "desc"),
+                limit(10)
+            );
+            const snapshot = await getDocs(q);
+            setEvents(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+        } catch (error) {
+            console.error(error.message);
+            setError("Greška inicijalnog učitavanja događaja");
+        } finally {
+            setLoading(false);
+        }
+    }
+    loadInitialEvents(); // poziv pri pokretanju komponenta
 
     // pretraživanje
     const searchEvents = async () => {
@@ -19,11 +44,17 @@ export default function EventManagement() {
 
         setLoading(true);
         setError(null);
+        setSuccess(null);
 
         try {
             const userId = authService.getCurrentUser().uid;
             const eventsRef = collection(db, "events");
-            const q = query(eventsRef, where("userId", "==", userId));
+            const q = query(
+                eventsRef,
+                where("userId", "==", userId),
+                orderBy("created", "desc"),
+                limit(100)
+            );
             const snapshot = await getDocs(q);
             const found = snapshot.docs
                 .map((doc) => ({ id: doc.id, ...doc.data() }))
@@ -41,7 +72,8 @@ export default function EventManagement() {
         e.preventDefault();
 
         setError(null);
-        setSuccess(false);
+        setSuccess(null);
+
         const userId = authService.getCurrentUser().uid;
 
         const data = new FormData(e.target);
@@ -50,7 +82,8 @@ export default function EventManagement() {
             description: data.get("description"),
             datetime: new Date(data.get("datetime")),
             isPrivate: !!data.get("isPrivate"),
-            userId: userId
+            userId: userId,
+            created: new Date()
         };
         console.log("Event data", eventData);
 
@@ -62,14 +95,15 @@ export default function EventManagement() {
                 setEvents(
                     events().map((event) => (event.id === selectedEvent().id ? { ...event, ...eventData } : event))
                 );
+                setSelectedEvent({ ...selectedEvent(), ...eventData });
             } else {
                 // dodavanje
                 const eventsRef = collection(db, "events");
-                const docRef = await addDoc(eventsRef, { ...eventData, created: new Date() });
-                setEvents([...events(), { id: docRef.id, ...eventData, created: new Date() }]);
+                const docRef = await addDoc(eventsRef, eventData);
+                setEvents([...events(), { id: docRef.id, ...eventData }]);
                 e.target.reset();
             }
-            setSuccess(true);
+            setSuccess(selectedEvent() ? "Događaj je uspješno ažuriran" : "Događaj je uspješno dodan");
         } catch (error) {
             console.error("Operation error", error.message);
             setError(selectedEvent() ? "Ažuriranje događaja nije uspjelo" : "Dodavanje događaja nije uspjelo");
@@ -80,19 +114,22 @@ export default function EventManagement() {
     const handleDelete = async () => {
         if (!confirm("Jeste li sigurni?")) return;
 
+        setError(null);
+        setSuccess(null);
+
         try {
             const docRef = doc(db, "events", selectedEvent().id);
             await deleteDoc(docRef);
             setEvents(events().filter((event) => (event.id !== selectedEvent().id)));
             setSelectedEvent(null);
             formRef.reset();
+            setSuccess("Događaj je uspješno obrisan");
         } catch (error) {
             console.error("Delete error", error.message);
             setError("Brisanje nije uspjelo");
         }
     };
 
-    let formRef;
     createEffect(() => {
         if (selectedEvent() && formRef) {
             const event = selectedEvent();
@@ -105,6 +142,14 @@ export default function EventManagement() {
             formRef.isPrivate.checked = event.isPrivate;
         }
     });
+
+    // pomoćna funkcija za oblikovanje datuma
+    const formatEventDate = (datetime) => {
+        if (!datetime) return "Nije zadan datum";
+        if (datetime.toDate) return datetime.toDate().toLocaleString();
+        if (datetime.toLocaleString) return datetime.toLocaleString();
+        return "Nije zadan datum";
+    }
 
     return (
         <>
@@ -148,7 +193,7 @@ export default function EventManagement() {
                                 <div class="card-body p-4">
                                     <h3 class="font-bold">{event.name}</h3>
                                     <p class="text-sm text-gray-600">
-                                        {event.datetime?.toDate?.().toLocaleString() || "Nije zadan datum"}
+                                        {formatEventDate(event.datetime)}
                                         {event.isPrivate && <span class="badge badge-sm ml-2">Privatan</span>}
                                     </p>
                                 </div>
@@ -159,9 +204,7 @@ export default function EventManagement() {
             </Show>
 
             <Message message={error()} type="error" />
-            <Show when={success()}>
-                <Message message={selectedEvent() ? "Događaj je uspješno ažuriran" : "Događaj uspješno dodan"} />
-            </Show>
+            <Message message={success()} />
 
             <form class="max-w-2xl m-auto" onSubmit={handleSubmit} ref={formRef}>
                 <label class="floating-label mb-1 w-full">
