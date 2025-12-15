@@ -1,4 +1,4 @@
-import { createSignal, Show, For, onMount } from "solid-js";
+import { createSignal, Show, For, createEffect } from "solid-js";
 import { isAuthenticated, authService } from "../services/auth.js";
 import { db } from "../lib/firebase.js";
 import { collection, query, where, getDocs, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
@@ -59,7 +59,7 @@ export default function Home() {
         return "Nije zadan datum";
     }
 
-    onMount(async () => {
+    createEffect(async () => {
         if (isAuthenticated()) {
             await loadEvents();
         }
@@ -97,9 +97,11 @@ export default function Home() {
                                                 {favorites().includes(event.id) ? "💙" : "🤍"}
                                             </button>
                                         </div>
-                                        <p></p>
-                                        <p></p>
-                                        <Show></Show>
+                                        <p class="text-sm">{event.description}</p>
+                                        <p class="text-xs text-gray-600">{formatEventDate(event.datetime)}</p>
+                                        <Show when={event.favorites?.length > 0}>
+                                            <p class="text-xs text-gray-500">💙 {event.favorites.length}</p>
+                                        </Show>
                                     </div>
                                 </div>
                             )}
