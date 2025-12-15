@@ -46,6 +46,16 @@ export default function Home() {
                 ? favorites().filter(id => id !== eventId)
                 : [...favorites(), eventId]
             );
+            // ažuriramo stanje polja "favorites" - popis korisnika kojima je događaj označen
+            setEvents(events().map(event =>
+                event.id === eventId // u postojećem popisu događaj tražimo ciljani događaj
+                    ? { // našli smo ciljani događaj, ažuriramo ga
+                        ...event, favorites: isFavorite // uzimamo stare podatke događaja i ažuriramo polje "favorites"
+                            ? (event.favorites || []).filter(id => id !== userId) // ako je događaj prije bio u "favorites" sada ga izbacujemo
+                            : [...(event.favorites || []), userId] // ako događaj nije bio u "favorites" sada ga dodajemo
+                    }
+                    : event // događaj koji nije ciljani ne diramo, ostavljamo takvim kakav jest
+            ));
         } catch (error) {
             console.error("Error toggling favorite", error.message);
         }
