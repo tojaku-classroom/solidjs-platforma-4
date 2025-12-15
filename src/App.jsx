@@ -10,6 +10,7 @@ import Error from "./pages/Error";
 import SignOut from "./pages/SignOut";
 import ResetPassword from "./pages/ResetPassword";
 import EventManagement from "./pages/EventManagement";
+import PrivateEvents from "./pages/PrivateEvents.jsx";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
       </Route>
       <Route path="/event" component={AuthBoundary}>
         <Route path="/management" component={EventManagement} />
+        <Route path="/private" component={PrivateEvents} />
       </Route>
       <Route path="/error" component={Error} />
       <Route path="*" component={NotFound} />
@@ -43,6 +45,7 @@ function Layout(props) {
               tabindex="-1"
               class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow">
               <li><a href="/event/management">Upravljanje događajima</a></li>
+              <li><a href="/event/private">Privatni događaji</a></li>
             </ul>
           </div>
         </div>
