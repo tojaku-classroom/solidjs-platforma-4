@@ -2,6 +2,7 @@ import { createSignal, Show } from "solid-js";
 import { authService } from "../services/auth.js";
 import Message from "../components/Message.jsx";
 import { SignUpSchema } from "../lib/schemas.js";
+import { addToast } from "../components/Toast.jsx";
 
 export default function SignUp() {
     const [error, setError] = createSignal(null);
@@ -25,6 +26,7 @@ export default function SignUp() {
             const validated = SignUpSchema.parse(formData);
             await authService.signUp(validated.email, validated.password, validated.name);
             setSuccess(true);
+            addToast("Korisnički račun je uspješno kreiran", "success")
         } catch (error) {
             if (error.name === "ZodError") {
                 const validationErrors = {};
@@ -34,6 +36,7 @@ export default function SignUp() {
                 setValidation(validationErrors);
             } else {
                 setError(error.message);
+                addToast("Dogodila se greška prilikom stvaranja korisničkog računa", "error");
             }
         }
     };

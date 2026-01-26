@@ -1,6 +1,7 @@
 import { Router, Route, Navigate } from "@solidjs/router";
 import { isAuthenticated, authLoading } from "./services/auth.js";
 import { Show } from "solid-js";
+import Toast from "./components/Toast.jsx";
 
 // pages
 import Home from "./pages/Home";
@@ -119,6 +120,8 @@ function Layout(props) {
           <p>Copyright © {new Date().getFullYear()} - All right reserved by ACME Industries Ltd</p>
         </aside>
       </footer>
+
+      <Toast />
     </>
   );
 }

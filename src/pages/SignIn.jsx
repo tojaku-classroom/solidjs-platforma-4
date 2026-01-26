@@ -3,6 +3,7 @@ import { authService } from "../services/auth.js";
 import Message from "../components/Message.jsx";
 import { useNavigate } from "@solidjs/router";
 import { SignInSchema } from "../lib/schemas.js";
+import { addToast } from "../components/Toast.jsx";
 
 export default function SignIn() {
     const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function SignIn() {
         try {
             const validated = SignInSchema.parse(formData);
             await authService.signIn(validated.email, validated.password);
+            addToast("Prijava je uspjela", "success");
             navigate("/");
         } catch (error) {
             if (error.name === "ZodError") {
@@ -34,6 +36,7 @@ export default function SignIn() {
                 setValidation(validationErrors);
             } else {
                 setError(error.message);
+                addToast("Dogodila se greška prilikom prijave", "error");
             }
         }
     };
