@@ -1,26 +1,40 @@
-import { createSignal } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { authService } from "../services/auth.js";
 import Message from "../components/Message.jsx";
 import { useNavigate } from "@solidjs/router";
+import { SignInSchema } from "../lib/schemas.js";
 
 export default function SignIn() {
     const navigate = useNavigate();
 
     const [error, setError] = createSignal(null);
+    const [validation, setValidation] = createSignal({});
 
     const handleSubmit = async (e) => {
         setError(null);
+        setValidation({});
         e.preventDefault();
         const data = new FormData(e.target);
         const email = data.get("email");
         const password = data.get("password");
-        console.log("Data", email, password);
+        const formData = {
+            email, password
+        };
 
         try {
-            await authService.signIn(email, password);
+            const validated = SignInSchema.parse(formData);
+            await authService.signIn(validated.email, validated.password);
             navigate("/");
         } catch (error) {
-            setError(error.message);
+            if (error.name === "ZodError") {
+                const validationErrors = {};
+                error.issues.forEach(e => {
+                    validationErrors[e.path[0]] = e.message;
+                });
+                setValidation(validationErrors);
+            } else {
+                setError(error.message);
+            }
         }
     };
 
@@ -31,15 +45,25 @@ export default function SignIn() {
             <Message message={error()} type="error" />
 
             <form class="max-w-2xl m-auto" onSubmit={handleSubmit}>
-                <label class="floating-label mb-1 w-full">
-                    <input class="input input-md w-full" type="email" name="email" placeholder="E-mail adresa" required="true" />
-                    <span>E-mail adresa</span>
-                </label>
+                <div>
+                    <label class="floating-label mb-1 w-full">
+                        <input class="input input-md w-full" type="email" name="email" placeholder="E-mail adresa" required />
+                        <span>E-mail adresa</span>
+                    </label>
+                    <Show when={validation().email}>
+                        <p class="text-error text-xs mb-2">{validation().email}</p>
+                    </Show>
+                </div>
 
-                <label class="floating-label mb-1">
-                    <input class="input input-md w-full" type="password" name="password" placeholder="Zaporka" required="true" />
-                    <span>Zaporka</span>
-                </label>
+                <div>
+                    <label class="floating-label mb-1">
+                        <input class="input input-md w-full" type="password" name="password" placeholder="Zaporka" required />
+                        <span>Zaporka</span>
+                    </label>
+                    <Show when={validation().password}>
+                        <p class="text-error text-xs mb-2">{validation().password}</p>
+                    </Show>
+                </div>
 
                 <button type="submit" class="btn btn-primary">Potvrdi</button>
                 <a class="btn btn-info ml-2" href="/user/resetpassword">Zaboravili ste zaporku?</a>
