@@ -1,16 +1,20 @@
 import { createSignal, Show, For, createEffect } from "solid-js";
 import { authService } from "../services/auth.js";
 import { db } from "../lib/firebase.js";
-import { collection, addDoc, query, where, updateDoc, deleteDoc, getDocs, doc, limit, orderBy } from "firebase/firestore";
+import { collection, addDoc, query, where, updateDoc, deleteDoc, getDocs, doc, limit, orderBy, startAfter } from "firebase/firestore";
 import { addToast } from "../components/Toast.jsx";
 
 export default function EventManagement() {
+    const EVENTS_PER_PAGE = 2;
+
     let formRef;
 
     const [searchTerm, setSearchTerm] = createSignal("");
     const [events, setEvents] = createSignal([]);
     const [selectedEvent, setSelectedEvent] = createSignal(null);
     const [loading, setLoading] = createSignal(false);
+    const [lastDoc, setLastDoc] = createSignal(null);
+
 
     // učitavanje prvih 10 događaja
     const loadInitialEvents = async () => {
@@ -22,10 +26,11 @@ export default function EventManagement() {
                 eventsRef,
                 where("userId", "==", userId),
                 orderBy("created", "desc"),
-                limit(10)
+                limit(EVENTS_PER_PAGE)
             );
             const snapshot = await getDocs(q);
             setEvents(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+            setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
         } catch (error) {
             console.error(error.message);
             addToast("Greška učitavanja", "error");
@@ -56,6 +61,7 @@ export default function EventManagement() {
                 .map((doc) => ({ id: doc.id, ...doc.data() }))
                 .filter((event) => event.name.toLowerCase().includes(term));
             setEvents(found);
+            setLastDoc(null);
         } catch (error) {
             console.error(error.message);
             addToast("Greška pretraživanja", "error");
@@ -140,6 +146,36 @@ export default function EventManagement() {
         return "Nije zadan datum";
     }
 
+    // učitavanje sljedeće stranice
+    const loadMore = async () => {
+        if (!lastDoc()) return;
+        setLoading(true);
+        try {
+            const userId = authService.getCurrentUser().uid;
+            const eventsRef = collection(db, "events");
+            const q = query(
+                eventsRef,
+                where("userId", "==", userId),
+                orderBy("created", "desc"),
+                startAfter(lastDoc()),
+                limit(EVENTS_PER_PAGE + 1)
+            );
+            const snapshot = await getDocs(q);
+            const docs = snapshot.docs.slice(0, EVENTS_PER_PAGE);
+            setEvents([...events(), ...docs.map((doc) => ({ id: doc.id, ...doc.data() }))]);
+            if (snapshot.docs.length > EVENTS_PER_PAGE) {
+                setLastDoc(snapshot.docs[EVENTS_PER_PAGE - 1]);
+            } else {
+                setLastDoc(null);
+            }
+        } catch (error) {
+            console.error(error.message);
+            addToast("Greška učitavanja", "error");
+        } finally {
+            setLoading(false);
+        }
+    }
+
     return (
         <>
             <h1 class="text-2xl uppercase tracking-wider mb-4 w-full text-center">
@@ -189,6 +225,17 @@ export default function EventManagement() {
                             </div>
                         )}
                     </For>
+                </div>
+            </Show>
+
+            {/* Gumb za učitvanje sljedeće stranice */}
+            <Show when={lastDoc()}>
+                <div class="max-w-2xl m-auto mb-4 flex justify-center">
+                    <button class="btn btn-sm" onClick={loadMore} disabled={loading()}>
+                        <Show when={loading()} fallback="Učitaj više">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </Show>
+                    </button>
                 </div>
             </Show>
 
