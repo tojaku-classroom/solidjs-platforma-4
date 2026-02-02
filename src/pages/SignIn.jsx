@@ -1,6 +1,5 @@
 import { createSignal, Show } from "solid-js";
 import { authService } from "../services/auth.js";
-import Message from "../components/Message.jsx";
 import { useNavigate } from "@solidjs/router";
 import { SignInSchema } from "../lib/schemas.js";
 import { addToast } from "../components/Toast.jsx";
@@ -8,11 +7,9 @@ import { addToast } from "../components/Toast.jsx";
 export default function SignIn() {
     const navigate = useNavigate();
 
-    const [error, setError] = createSignal(null);
     const [validation, setValidation] = createSignal({});
 
     const handleSubmit = async (e) => {
-        setError(null);
         setValidation({});
         e.preventDefault();
         const data = new FormData(e.target);
@@ -35,8 +32,8 @@ export default function SignIn() {
                 });
                 setValidation(validationErrors);
             } else {
-                setError(error.message);
-                addToast("Dogodila se greška prilikom prijave", "error");
+                console.error(error.message);
+                addToast("Greška prijave", "error");
             }
         }
     };
@@ -44,8 +41,6 @@ export default function SignIn() {
     return (
         <>
             <h1 class="text-2xl uppercase tracking-wider mb-2 w-full text-center">Prijava korisnika</h1>
-
-            <Message message={error()} type="error" />
 
             <form class="max-w-2xl m-auto" onSubmit={handleSubmit}>
                 <div>

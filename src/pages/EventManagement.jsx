@@ -1,8 +1,8 @@
 import { createSignal, Show, For, createEffect } from "solid-js";
 import { authService } from "../services/auth.js";
-import Message from "../components/Message.jsx";
 import { db } from "../lib/firebase.js";
 import { collection, addDoc, query, where, updateDoc, deleteDoc, getDocs, doc, limit, orderBy } from "firebase/firestore";
+import { addToast } from "../components/Toast.jsx";
 
 export default function EventManagement() {
     let formRef;
@@ -11,8 +11,6 @@ export default function EventManagement() {
     const [events, setEvents] = createSignal([]);
     const [selectedEvent, setSelectedEvent] = createSignal(null);
     const [loading, setLoading] = createSignal(false);
-    const [error, setError] = createSignal(null);
-    const [success, setSuccess] = createSignal(null);
 
     // učitavanje prvih 10 događaja
     const loadInitialEvents = async () => {
@@ -30,7 +28,7 @@ export default function EventManagement() {
             setEvents(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
         } catch (error) {
             console.error(error.message);
-            setError("Greška inicijalnog učitavanja događaja");
+            addToast("Greška učitavanja", "error");
         } finally {
             setLoading(false);
         }
@@ -43,8 +41,6 @@ export default function EventManagement() {
         if (!term || term.length <= 3) return;
 
         setLoading(true);
-        setError(null);
-        setSuccess(null);
 
         try {
             const userId = authService.getCurrentUser().uid;
@@ -62,7 +58,7 @@ export default function EventManagement() {
             setEvents(found);
         } catch (error) {
             console.error(error.message);
-            setError("Greška pretraživanja");
+            addToast("Greška pretraživanja", "error");
         } finally {
             setLoading(false);
         }
@@ -70,9 +66,6 @@ export default function EventManagement() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        setError(null);
-        setSuccess(null);
 
         const userId = authService.getCurrentUser().uid;
 
@@ -85,7 +78,6 @@ export default function EventManagement() {
             userId: userId,
             created: new Date()
         };
-        console.log("Event data", eventData);
 
         try {
             if (selectedEvent()) {
@@ -103,10 +95,10 @@ export default function EventManagement() {
                 setEvents([...events(), { id: docRef.id, ...eventData }]);
                 e.target.reset();
             }
-            setSuccess(selectedEvent() ? "Događaj je uspješno ažuriran" : "Događaj je uspješno dodan");
+            addToast(selectedEvent() ? "Događaj je ažuriran" : "Događaj je dodan", "success");
         } catch (error) {
             console.error("Operation error", error.message);
-            setError(selectedEvent() ? "Ažuriranje događaja nije uspjelo" : "Dodavanje događaja nije uspjelo");
+            addToast(selectedEvent() ? "Ažuriranje nije uspjelo" : "Dodavanje nije uspjelo", "error");
         }
     };
 
@@ -114,19 +106,16 @@ export default function EventManagement() {
     const handleDelete = async () => {
         if (!confirm("Jeste li sigurni?")) return;
 
-        setError(null);
-        setSuccess(null);
-
         try {
             const docRef = doc(db, "events", selectedEvent().id);
             await deleteDoc(docRef);
             setEvents(events().filter((event) => (event.id !== selectedEvent().id)));
             setSelectedEvent(null);
             formRef.reset();
-            setSuccess("Događaj je uspješno obrisan");
+            addToast("Događaj je obrisan", "success");
         } catch (error) {
             console.error("Delete error", error.message);
-            setError("Brisanje nije uspjelo");
+            addToast("Brisanje nije uspjelo", "error");
         }
     };
 
@@ -202,9 +191,6 @@ export default function EventManagement() {
                     </For>
                 </div>
             </Show>
-
-            <Message message={error()} type="error" />
-            <Message message={success()} />
 
             <form class="max-w-2xl m-auto" onSubmit={handleSubmit} ref={formRef}>
                 <label class="floating-label mb-1 w-full">
