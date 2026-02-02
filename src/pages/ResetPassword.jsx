@@ -1,31 +1,28 @@
 import { createSignal } from "solid-js";
 import { authService } from "../services/auth.js";
 import Message from "../components/Message.jsx";
+import { addToast } from "../components/Toast.jsx";
 
 export default function ResetPassword() {
-    const [error, setError] = createSignal(null);
     const [success, setSuccess] = createSignal(null);
 
     const handleSubmit = async (e) => {
-        setError(null);
         e.preventDefault();
         const data = new FormData(e.target);
         const email = data.get("email");
-        console.log("Data", email);
 
         try {
             await authService.passwordReset(email);
             setSuccess(true);
         } catch (error) {
-            setError(error.message);
+            console.error(error.message);
+            addToast("Greška promjene zaporke", "error");
         }
     };
 
     return (
         <>
             <h1 class="text-2xl uppercase tracking-wider mb-2 w-full text-center">Zaboravljena zaporka</h1>
-
-            <Message message={error()} type="error" />
 
             <Show when={!success()}>
                 <form class="max-w-2xl m-auto" onSubmit={handleSubmit}>

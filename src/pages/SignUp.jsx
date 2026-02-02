@@ -5,12 +5,10 @@ import { SignUpSchema } from "../lib/schemas.js";
 import { addToast } from "../components/Toast.jsx";
 
 export default function SignUp() {
-    const [error, setError] = createSignal(null);
     const [success, setSuccess] = createSignal(false);
     const [validation, setValidation] = createSignal({});
 
     const handleSubmit = async (e) => {
-        setError(null);
         setValidation({});
         e.preventDefault();
         const data = new FormData(e.target);
@@ -26,7 +24,6 @@ export default function SignUp() {
             const validated = SignUpSchema.parse(formData);
             await authService.signUp(validated.email, validated.password, validated.name);
             setSuccess(true);
-            addToast("Korisnički račun je uspješno kreiran", "success")
         } catch (error) {
             if (error.name === "ZodError") {
                 const validationErrors = {};
@@ -35,8 +32,8 @@ export default function SignUp() {
                 });
                 setValidation(validationErrors);
             } else {
-                setError(error.message);
-                addToast("Dogodila se greška prilikom stvaranja korisničkog računa", "error");
+                console.error(error.message);
+                addToast("Greška registracije", "error");
             }
         }
     };
@@ -44,8 +41,6 @@ export default function SignUp() {
     return (
         <>
             <h1 class="text-2xl uppercase tracking-wider mb-4 w-full text-center">Registracija korisnika</h1>
-
-            <Message message={error()} type="error" />
 
             <Show when={!success()}>
                 <form class="max-w-2xl m-auto" onSubmit={handleSubmit}>
@@ -94,7 +89,7 @@ export default function SignUp() {
             </Show>
 
             <Show when={success()}>
-                <Message message="Uspješno ste napravili korisnički račun; možete na prijavu" />
+                <Message message="Uspješno ste napravili korisnički račun" />
             </Show>
         </>
     );

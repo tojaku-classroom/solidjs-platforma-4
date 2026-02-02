@@ -1,7 +1,9 @@
-import { createSignal, Show, For, createEffect } from "solid-js";
+import { createSignal, Show, For, createEffect, onCleanup, on } from "solid-js";
 import { isAuthenticated, authService } from "../services/auth.js";
 import { db } from "../lib/firebase.js";
 import { collection, query, where, getDocs, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { formatDistanceToNow, isPast } from "date-fns";
+import { hr } from "date-fns/locale";
 
 export default function Home() {
     const [events, setEvents] = createSignal([]);
@@ -69,6 +71,27 @@ export default function Home() {
         return "Nije zadan datum";
     }
 
+    // tajmeri događaja
+    const [timeLeft, setTimeLeft] = createSignal({});
+    const updateCountdown = () => {
+        const counters = {};
+        events().forEach(event => {
+            const date = event.datetime?.toDate?.() || event.datetime;
+            if (date) {
+                counters[event.id] = isPast(date) ? "Prošao" : formatDistanceToNow(date, { locale: hr, addSuffix: true, includeSeconds: true });
+            }
+        });
+        setTimeLeft(counters);
+    }
+
+    createEffect(() => {
+        if (events().length > 0) {
+            updateCountdown();
+            const interval = setInterval(updateCountdown, 1000);
+            onCleanup(() => clearInterval(interval));
+        }
+    });
+
     createEffect(async () => {
         if (isAuthenticated()) {
             await loadEvents();
@@ -109,6 +132,7 @@ export default function Home() {
                                         </div>
                                         <p class="text-sm">{event.description}</p>
                                         <p class="text-xs text-gray-600">{formatEventDate(event.datetime)}</p>
+                                        <p class="text-sm font-semibold text-orange-600">{timeLeft()[event.id]}</p>
                                         <Show when={event.favorites?.length > 0}>
                                             <p class="text-xs text-gray-500">💙 {event.favorites.length}</p>
                                         </Show>

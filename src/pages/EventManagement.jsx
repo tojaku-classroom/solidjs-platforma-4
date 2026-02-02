@@ -1,20 +1,21 @@
 import { createSignal, Show, For, createEffect } from "solid-js";
 import { authService } from "../services/auth.js";
-import Message from "../components/Message.jsx";
 import { db } from "../lib/firebase.js";
-import { collection, addDoc, query, where, updateDoc, deleteDoc, getDocs, doc, limit, orderBy } from "firebase/firestore";
+import { collection, addDoc, query, where, updateDoc, deleteDoc, getDocs, doc, limit, orderBy, startAfter } from "firebase/firestore";
+import { addToast } from "../components/Toast.jsx";
 
 export default function EventManagement() {
+    const EVENTS_PER_PAGE = 3;
+
     let formRef;
 
     const [searchTerm, setSearchTerm] = createSignal("");
     const [events, setEvents] = createSignal([]);
     const [selectedEvent, setSelectedEvent] = createSignal(null);
     const [loading, setLoading] = createSignal(false);
-    const [error, setError] = createSignal(null);
-    const [success, setSuccess] = createSignal(null);
+    const [lastDoc, setLastDoc] = createSignal(null);
 
-    // učitavanje prvih 10 događaja
+    // učitavanje prvih X događaja
     const loadInitialEvents = async () => {
         setLoading(true);
         try {
@@ -24,13 +25,14 @@ export default function EventManagement() {
                 eventsRef,
                 where("userId", "==", userId),
                 orderBy("created", "desc"),
-                limit(10)
+                limit(EVENTS_PER_PAGE)
             );
             const snapshot = await getDocs(q);
             setEvents(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+            setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
         } catch (error) {
             console.error(error.message);
-            setError("Greška inicijalnog učitavanja događaja");
+            addToast("Greška učitavanja", "error");
         } finally {
             setLoading(false);
         }
@@ -43,8 +45,6 @@ export default function EventManagement() {
         if (!term || term.length <= 3) return;
 
         setLoading(true);
-        setError(null);
-        setSuccess(null);
 
         try {
             const userId = authService.getCurrentUser().uid;
@@ -60,9 +60,10 @@ export default function EventManagement() {
                 .map((doc) => ({ id: doc.id, ...doc.data() }))
                 .filter((event) => event.name.toLowerCase().includes(term));
             setEvents(found);
+            setLastDoc(null);
         } catch (error) {
             console.error(error.message);
-            setError("Greška pretraživanja");
+            addToast("Greška pretraživanja", "error");
         } finally {
             setLoading(false);
         }
@@ -70,9 +71,6 @@ export default function EventManagement() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        setError(null);
-        setSuccess(null);
 
         const userId = authService.getCurrentUser().uid;
 
@@ -85,7 +83,6 @@ export default function EventManagement() {
             userId: userId,
             created: new Date()
         };
-        console.log("Event data", eventData);
 
         try {
             if (selectedEvent()) {
@@ -103,10 +100,10 @@ export default function EventManagement() {
                 setEvents([...events(), { id: docRef.id, ...eventData }]);
                 e.target.reset();
             }
-            setSuccess(selectedEvent() ? "Događaj je uspješno ažuriran" : "Događaj je uspješno dodan");
+            addToast(selectedEvent() ? "Događaj je ažuriran" : "Događaj je dodan", "success");
         } catch (error) {
             console.error("Operation error", error.message);
-            setError(selectedEvent() ? "Ažuriranje događaja nije uspjelo" : "Dodavanje događaja nije uspjelo");
+            addToast(selectedEvent() ? "Ažuriranje nije uspjelo" : "Dodavanje nije uspjelo", "error");
         }
     };
 
@@ -114,19 +111,16 @@ export default function EventManagement() {
     const handleDelete = async () => {
         if (!confirm("Jeste li sigurni?")) return;
 
-        setError(null);
-        setSuccess(null);
-
         try {
             const docRef = doc(db, "events", selectedEvent().id);
             await deleteDoc(docRef);
             setEvents(events().filter((event) => (event.id !== selectedEvent().id)));
             setSelectedEvent(null);
             formRef.reset();
-            setSuccess("Događaj je uspješno obrisan");
+            addToast("Događaj je obrisan", "success");
         } catch (error) {
             console.error("Delete error", error.message);
-            setError("Brisanje nije uspjelo");
+            addToast("Brisanje nije uspjelo", "error");
         }
     };
 
@@ -149,6 +143,36 @@ export default function EventManagement() {
         if (datetime.toDate) return datetime.toDate().toLocaleString();
         if (datetime.toLocaleString) return datetime.toLocaleString();
         return "Nije zadan datum";
+    }
+
+    // učitavanje sljedeće stranice
+    const loadMore = async () => {
+        if (!lastDoc()) return;
+        setLoading(true);
+        try {
+            const userId = authService.getCurrentUser().uid;
+            const eventsRef = collection(db, "events");
+            const q = query(
+                eventsRef,
+                where("userId", "==", userId),
+                orderBy("created", "desc"),
+                startAfter(lastDoc()),
+                limit(EVENTS_PER_PAGE + 1)
+            );
+            const snapshot = await getDocs(q);
+            const docs = snapshot.docs.slice(0, EVENTS_PER_PAGE);
+            setEvents([...events(), ...docs.map((doc) => ({ id: doc.id, ...doc.data() }))]);
+            if (snapshot.docs.length > EVENTS_PER_PAGE) {
+                setLastDoc(snapshot.docs[EVENTS_PER_PAGE - 1]);
+            } else {
+                setLastDoc(null);
+            }
+        } catch (error) {
+            console.error(error.message);
+            addToast("Greška učitavanja", "error");
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
@@ -203,8 +227,16 @@ export default function EventManagement() {
                 </div>
             </Show>
 
-            <Message message={error()} type="error" />
-            <Message message={success()} />
+            {/* Gumb za učitavanje sljedeće stranice */}
+            <Show when={lastDoc()}>
+                <div class="max-w-2xl m-auto mb-4 flex justify-center">
+                    <button class="btn btn-sm" onClick={loadMore} disabled={loading()}>
+                        <Show when={loading()} fallback="Učitaj više">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </Show>
+                    </button>
+                </div>
+            </Show>
 
             <form class="max-w-2xl m-auto" onSubmit={handleSubmit} ref={formRef}>
                 <label class="floating-label mb-1 w-full">
