@@ -14,7 +14,7 @@ export default function EventManagement() {
     const [selectedEvent, setSelectedEvent] = createSignal(null);
     const [loading, setLoading] = createSignal(false);
     const [lastDoc, setLastDoc] = createSignal(null);
-    const [sortBy, setSortBy] = createSignal(null);
+    const [sortBy, setSortBy] = createSignal("created-desc");
 
     const getSortParams = () => {
         const sort = sortBy();
@@ -227,7 +227,7 @@ export default function EventManagement() {
                 </div>
             </div>
 
-            {/* Izbornik sotiranja */}
+            {/* Izbornik sortiranja */}
             <div class="max-w-2xl m-auto mb-4">
                 <select class="select select-bordered w-full" value={sortBy()}
                     onChange={(e) => setSortBy(e.target.value)}>
