@@ -14,7 +14,27 @@ export default function EventManagement() {
     const [selectedEvent, setSelectedEvent] = createSignal(null);
     const [loading, setLoading] = createSignal(false);
     const [lastDoc, setLastDoc] = createSignal(null);
+    const [sortBy, setSortBy] = createSignal("created-desc");
 
+    const getSortParams = () => {
+        const sort = sortBy();
+        switch (sort) {
+            case "created-desc":
+                return { field: "created", direction: "desc" };
+            case "created-asc":
+                return { field: "created", direction: "asc" };
+            case "datetime-desc":
+                return { field: "datetime", direction: "desc" };
+            case "datetime-asc":
+                return { field: "datetime", direction: "asc" };
+            case "name-asc":
+                return { field: "name", direction: "asc" };
+            case "name-desc":
+                return { field: "name", direction: "desc" };
+            default:
+                return { field: "created", direction: "desc" };
+        }
+    }
 
     // učitavanje prvih 10 događaja
     const loadInitialEvents = async () => {
@@ -22,10 +42,11 @@ export default function EventManagement() {
         try {
             const userId = authService.getCurrentUser().uid;
             const eventsRef = collection(db, "events");
+            const sortParams = getSortParams();
             const q = query(
                 eventsRef,
                 where("userId", "==", userId),
-                orderBy("created", "desc"),
+                orderBy(sortParams.field, sortParams.direction),
                 limit(EVENTS_PER_PAGE)
             );
             const snapshot = await getDocs(q);
@@ -40,6 +61,11 @@ export default function EventManagement() {
     }
     loadInitialEvents(); // poziv pri pokretanju komponenta
 
+    createEffect(() => {
+        sortBy();
+        loadInitialEvents();
+    });
+
     // pretraživanje
     const searchEvents = async () => {
         const term = searchTerm().toLowerCase().trim();
@@ -50,10 +76,11 @@ export default function EventManagement() {
         try {
             const userId = authService.getCurrentUser().uid;
             const eventsRef = collection(db, "events");
+            const sortParams = getSortParams();
             const q = query(
                 eventsRef,
                 where("userId", "==", userId),
-                orderBy("created", "desc"),
+                orderBy(sortParams.field, sortParams.direction),
                 limit(100)
             );
             const snapshot = await getDocs(q);
@@ -153,10 +180,11 @@ export default function EventManagement() {
         try {
             const userId = authService.getCurrentUser().uid;
             const eventsRef = collection(db, "events");
+            const sortParams = getSortParams();
             const q = query(
                 eventsRef,
                 where("userId", "==", userId),
-                orderBy("created", "desc"),
+                orderBy(sortParams.field, sortParams.direction),
                 startAfter(lastDoc()),
                 limit(EVENTS_PER_PAGE + 1)
             );
@@ -197,6 +225,19 @@ export default function EventManagement() {
                         Traži
                     </button>
                 </div>
+            </div>
+
+            {/* Izbornik sortiranja */}
+            <div class="max-w-2xl m-auto mb-4">
+                <select class="select select-bordered w-full" value={sortBy()}
+                    onChange={(e) => setSortBy(e.target.value)}>
+                    <option value="created-desc">Dodani prije</option>
+                    <option value="created-asc">Dodani kasnije</option>
+                    <option value="datetime-asc">Najraniji prvo</option>
+                    <option value="datetime-desc">Najstariji prvo</option>
+                    <option value="name-asc">Naziv A-Z</option>
+                    <option value="name-desc">Naziv Z-A</option>
+                </select>
             </div>
 
             {/* Tijek učitavanja */}

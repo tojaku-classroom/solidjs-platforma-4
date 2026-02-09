@@ -1,14 +1,16 @@
-import { createSignal, Show, For, createEffect, onCleanup } from "solid-js";
+import { createSignal, createMemo, Show, For, createEffect, onCleanup } from "solid-js";
 import { isAuthenticated, authService } from "../services/auth.js";
 import { db } from "../lib/firebase.js";
 import { collection, query, where, getDocs, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { formatDistanceToNow, isPast } from "date-fns";
 import { hr } from "date-fns/locale";
+import { addToast } from "../components/Toast.jsx";
 
 export default function Home() {
     const [events, setEvents] = createSignal([]);
     const [loading, setLoading] = createSignal(false);
     const [favorites, setFavorites] = createSignal([]);
+    const [sortBy, setSortBy] = createSignal("datetime-asc");
 
     const loadEvents = async () => {
         setLoading(true);
@@ -71,11 +73,43 @@ export default function Home() {
         return "Nije zadan datum";
     }
 
+    const sortedEvents = createMemo(() => {
+        const sorted = [...events()];
+        const sort = sortBy();
+
+        switch (sort) {
+            case "datetime-desc":
+                return sorted.sort((a, b) => {
+                    const dateA = a.datetime?.toDate?.() || a.datetime || new Date(0);
+                    const dateB = b.datetime?.toDate?.() || b.datetime || new Date(0);
+                    return dateB - dateA;
+                });
+            case "datetime-asc":
+                return sorted.sort((a, b) => {
+                    const dateA = a.datetime?.toDate?.() || a.datetime || new Date(0);
+                    const dateB = b.datetime?.toDate?.() || b.datetime || new Date(0);
+                    return dateA - dateB;
+                });
+            case "name-asc":
+                return sorted.sort((a, b) => a.name.localeCompare(b.name));
+            case "name-desc":
+                return sorted.sort((a, b) => b.name.localeCompare(a.name));
+            case "favorites-desc":
+                return sorted.sort((a, b) => {
+                    const favA = a.favorites?.length || 0;
+                    const favB = b.favorites?.length || 0;
+                    return favB - favA;
+                });
+            default:
+                return sorted;
+        }
+    });
+
     // tajmeri događaja
     const [timeLeft, setTimeLeft] = createSignal({});
     const updateCountdown = () => {
         const counters = {};
-        events().forEach(event => {
+        sortedEvents().forEach(event => {
             const date = event.datetime?.toDate?.() || event.datetime;
             if (date) {
                 counters[event.id] = isPast(date) ? "Prošao" : formatDistanceToNow(date, { addSuffix: true, locale: hr, includeSeconds: true });
@@ -85,7 +119,7 @@ export default function Home() {
     }
 
     createEffect(() => {
-        if (events().length > 0) {
+        if (sortedEvents().length > 0) {
             updateCountdown();
             const interval = setInterval(updateCountdown, 1000);
             onCleanup(() => clearInterval(interval));
@@ -97,6 +131,16 @@ export default function Home() {
             await loadEvents();
         }
     });
+
+    const shareEvent = async (eventId) => {
+        const shareUrl = `${window.location.origin}/event/view/${eventId}`;
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            addToast("Link događaja kopiran u međuspremnik", "success")
+        } catch (error) {
+            addToast("Greška kopiranja u međuspremnik", "error");
+        }
+    }
 
     return (
         <>
@@ -113,22 +157,39 @@ export default function Home() {
                     </div>
                 </Show>
 
-                <Show when={!loading() && events().length === 0}>
+                <Show when={!loading() && sortedEvents().length === 0}>
                     <p class="text-center text-gray-600">Nema dostupnih događaja</p>
                 </Show>
 
-                <Show when={!loading() && events().length > 0}>
+                <Show when={!loading() && sortedEvents().length > 0}>
+                    {/* Izbornik sortiranja */}
+                    <div class="max-w-4xl m-auto mb-4">
+                        <select class="select select-bordered w-full" value={sortBy()}
+                            onChange={(e) => setSortBy(e.target.value)}>
+                            <option value="datetime-asc">Najraniji prvo</option>
+                            <option value="datetime-desc">Najstariji prvo</option>
+                            <option value="name-asc">Naziv A-Z</option>
+                            <option value="name-desc">Naziv Z-A</option>
+                            <option value="favorites-desc">Najpopularniji</option>
+                        </select>
+                    </div>
+
                     <div class="max-w-4xl m-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <For each={events()}>
+                        <For each={sortedEvents()}>
                             {(event) =>
                             (
                                 <div class="card bg-base-200 shadow-md">
                                     <div class="card-body">
                                         <div class="flex justify-between items-start">
                                             <h3 class="card-title">{event.name}</h3>
-                                            <button class="btn btn-ghost btn-circle btn-sm" onClick={() => toggleFavorite(event.id)}>
-                                                {favorites().includes(event.id) ? "💙" : "🤍"}
-                                            </button>
+                                            <div class="flex gap-1">
+                                                <button class="btn btn-ghost btn-circle btn-sm" onClick={() => shareEvent(event.id)}>
+                                                    🔗
+                                                </button>
+                                                <button class="btn btn-ghost btn-circle btn-sm" onClick={() => toggleFavorite(event.id)}>
+                                                    {favorites().includes(event.id) ? "💙" : "🤍"}
+                                                </button>
+                                            </div>
                                         </div>
                                         <p class="text-sm">{event.description}</p>
                                         <p class="text-xs text-gray-600">{formatEventDate(event.datetime)}</p>
