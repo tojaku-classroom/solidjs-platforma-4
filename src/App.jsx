@@ -13,6 +13,7 @@ import ResetPassword from "./pages/ResetPassword";
 import EventManagement from "./pages/EventManagement";
 import PrivateEvents from "./pages/PrivateEvents.jsx";
 import EventDetail from "./pages/EventDetail.jsx";
+import UserProfile from "./pages/UserProfile.jsx";
 
 export default function App() {
     return (
@@ -23,6 +24,9 @@ export default function App() {
                 <Route path="/signup" component={SignUp} />
                 <Route path="/signout" component={SignOut} />
                 <Route path="/resetpassword" component={ResetPassword} />
+                <Route path="/profile" component={AuthBoundary}>
+                    <Route path="/" component={UserProfile} />
+                </Route>
             </Route>
             <Route path="/event" component={AuthBoundary}>
                 <Route path="/management" component={EventManagement} />
@@ -65,6 +69,9 @@ function Layout(props) {
                         </a>
                     </Show>
                     <Show when={isAuthenticated()}>
+                        <a href="/user/profile" class="btn btn-ghost btn-square text-2xl">
+                            👤
+                        </a>
                         <a href="/user/signout" class="btn btn-ghost btn-square text-2xl">
                             🚷
                         </a>
