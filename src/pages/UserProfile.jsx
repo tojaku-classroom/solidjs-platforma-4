@@ -2,12 +2,16 @@ import { createSignal, createEffect, Show, For } from "solid-js";
 import { authService, isAuthenticated } from "../services/auth";
 import { db } from "../lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import { updateProfile } from "firebase/auth";
+import { addToast } from "../components/Toast";
 
 export default function UserProfile() {
     const [user, setUser] = createSignal(null);
     const [myEvents, setMyEvents] = createSignal([]);
     const [favorites, setFavorites] = createSignal([]);
     const [loading, setLoading] = createSignal(true);
+    const [editing, setEditing] = createSignal(false);
+    const [newDisplayName, setNewDisplayName] = createSignal("");
 
     createEffect(async () => {
         if (!isAuthenticated()) return;
@@ -33,7 +37,19 @@ export default function UserProfile() {
         setLoading(false);
     });
 
-    const formatDate = (dt) => dt?.toDate?.().toLocaleString() || '-';
+    const handleChangeName = async () => {
+        if (!newDisplayName().trim()) return;
+
+        try {
+            await updateProfile(authService.getCurrentUser(), { displayName: newDisplayName() });
+            setUser({ ...user(), displayName: newDisplayName() });
+            setEditing(false);
+            setNewDisplayName("");
+        } catch (error) {
+            console.error(error.message);
+            addToast("Greška promjene imena", "error");
+        }
+    }
 
     return (
         <div class="max-w-4xl mx-auto p-4">
@@ -49,7 +65,29 @@ export default function UserProfile() {
                     <div class="card bg-base-200">
                         <div class="card-body">
                             <h2 class="card-title text-lg">👤 Profil</h2>
-                            <p>Ime: {user().displayName || "Nije postavljeno"}</p>
+                            <Show when={!editing()}>
+                                <div class="flex gap-2 align-bottom">
+                                    <p class="max-w-fit">Ime: {user().displayName || "Nije postavljeno"}</p>
+                                    <button class="btn btn-xs btn-ghost"
+                                        onClick={() => {
+                                            setNewDisplayName(user().displayName || "");
+                                            setEditing(true);
+                                        }}
+                                    >✏️</button>
+                                </div>
+                            </Show>
+                            <Show when={editing()}>
+                                <div class="flex gap-2">
+                                    <input type="text"
+                                        class="input input-sm input-bordered flex-1"
+                                        placeholder="Novo ime"
+                                        value={newDisplayName()}
+                                        onInput={(e) => setNewDisplayName(e.target.value)}
+                                    />
+                                    <button class="btn btn-sm btn-ghost" onClick={handleChangeName}>✔️</button>
+                                    <button class="btn btn-sm btn-ghost" onClick={() => setEditing(false)}>❌</button>
+                                </div>
+                            </Show>
                             <p>E-mail: {user().email}</p>
                         </div>
                     </div>
