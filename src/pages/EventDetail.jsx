@@ -14,7 +14,7 @@ export default function EventDetail() {
         setLoading(false);
     });
 
-    const formatDate = (dt) => dt?.toDate?.().toLocaleString() || '-';
+    const formatDate = (dt) => dt?.toDate?.().toLocaleString() || "-";
 
     return(
         <div class="min-h-screen bg-base-100">
