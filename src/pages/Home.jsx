@@ -179,9 +179,18 @@ export default function Home() {
                             {(event) =>
                             (
                                 <div class="card bg-base-200 shadow-md">
+                                    <Show when={event.imageBase64}>
+                                        <figure class="h-48 overflow-hidden">
+                                            <img src={event.imageBase64} alt={event.name} class="w-full h-full object-cover" />
+                                        </figure>
+                                    </Show>
                                     <div class="card-body">
                                         <div class="flex justify-between items-start">
-                                            <h3 class="card-title">{event.name}</h3>
+                                            <h3 class="card-title">
+                                                <a href={`/event/view/${event.id}`}>
+                                                    {event.name}
+                                                </a>
+                                            </h3>
                                             <div class="flex gap-1">
                                                 <button class="btn btn-ghost btn-circle btn-sm" onClick={() => shareEvent(event.id)}>
                                                     🔗

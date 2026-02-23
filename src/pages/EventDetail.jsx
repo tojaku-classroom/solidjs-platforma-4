@@ -28,6 +28,11 @@ export default function EventDetail() {
 
                 <Show when={!loading() && event()}>
                     <div class="card bg-base-200 shadow-lg">
+                        <Show when={event().imageBase64}>
+                            <figure class="max-h-96 overflow-hidden">
+                                <img src={event().imageBase64} alt={event().name} class="w-full h-full object-cover" />
+                            </figure>
+                        </Show>
                         <div class="card-body">
                             <h1 class="card-title text-3xl mb-4">{event().name}</h1>
                             <p class="text-base opacity-90 mb-4">{event().description}</p>
