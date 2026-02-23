@@ -1,4 +1,4 @@
-import { createSignal, createEffect, Show, For } from "solid-js";
+import { createSignal, createEffect, Show } from "solid-js";
 import { authService, isAuthenticated } from "../services/auth";
 import { db } from "../lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -18,21 +18,23 @@ export default function UserProfile() {
         const currentUser = authService.getCurrentUser();
         setUser(currentUser);
 
-        const myEventsSnap = await getDocs(
-            query(
-                collection(db, "events"),
-                where("userId", "==", currentUser.uid)
-            )
-        );
-        setMyEvents(myEventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        try {
+            const myEventsSnap = await getDocs(
+                query(
+                    collection(db, "events"),
+                    where("userId", "==", currentUser.uid)
+                )
+            );
+            setMyEvents(myEventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-        const favSnap = await getDocs(
-            query(
-                collection(db, "events"),
-                where("favorites", "array-contains", currentUser.uid)
-            )
-        );
-        setFavorites(favSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const favSnap = await getDocs(
+                query(
+                    collection(db, "events"),
+                    where("favorites", "array-contains", currentUser.uid)
+                )
+            );
+            setFavorites(favSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (error) { }
 
         setLoading(false);
     });
