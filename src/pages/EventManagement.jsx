@@ -15,6 +15,7 @@ export default function EventManagement() {
     const [loading, setLoading] = createSignal(false);
     const [lastDoc, setLastDoc] = createSignal(null);
     const [sortBy, setSortBy] = createSignal("created-desc");
+    const [imageBase64, setImageBase64] = createSignal("");
 
     const getSortParams = () => {
         const sort = sortBy();
@@ -108,6 +109,7 @@ export default function EventManagement() {
             description: data.get("description"),
             datetime: new Date(data.get("datetime")),
             isPrivate: !!data.get("isPrivate"),
+            imageBase64: imageBase64() || selectedEvent().imageBase64 || "",
             userId: userId,
             created: new Date()
         };
@@ -127,6 +129,7 @@ export default function EventManagement() {
                 const docRef = await addDoc(eventsRef, eventData);
                 setEvents([...events(), { id: docRef.id, ...eventData }]);
                 e.target.reset();
+                setImageBase64("");
             }
             addToast(selectedEvent() ? "Događaj je ažuriran" : "Događaj je dodan", "success");
         } catch (error) {
@@ -162,6 +165,7 @@ export default function EventManagement() {
                 formRef.datetime.value = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
             }
             formRef.isPrivate.checked = event.isPrivate;
+            setImageBase64(event.imageBase64 || "");
         }
     });
 
@@ -171,6 +175,22 @@ export default function EventManagement() {
         if (datetime.toDate) return datetime.toDate().toLocaleString();
         if (datetime.toLocaleString) return datetime.toLocaleString();
         return "Nije zadan datum";
+    }
+
+    // pomoćna funkcija za konverziju slike
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.size > 524288) {
+            addToast("Slika mora biti manja od 512 KB", "error");
+            e.target.value = "";
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => setImageBase64(reader.result);
+        reader.readAsDataURL(file);
     }
 
     // učitavanje sljedeće stranice
@@ -294,6 +314,19 @@ export default function EventManagement() {
                     <input class="input input-md w-full" type="datetime-local" name="datetime" placeholder="Datum i vrijeme" required />
                     <span>Datum i vrijeme</span>
                 </label>
+
+                <fieldset class="fieldset py-2">
+                    <label class="label cursor-pointer flex flex-col items-start gap-2">
+                        Slika događaja (max. 512 KB)
+                    </label>
+                    <input type="file"
+                        accept="image/*"
+                        class="file-input file-input-bordered file-input-sm w-full"
+                        onChange={handleImageChange} />
+                    <Show when={imageBase64()}>
+                        <img src={imageBase64()} class="w-32 h-32 object-cover rounded" alt="Preview" />
+                    </Show>
+                </fieldset>
 
                 <fieldset class="fieldset py-2">
                     <label class="label">
